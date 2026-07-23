@@ -5,10 +5,13 @@ Obsidian note built from a small, self-bounded set of YouTube videos.
 
 - **`info_gatherer`** — searches YouTube for the topic, judges candidate videos by title/description
   relevance, pulls transcripts for the top 2, and decides whether that's already exhaustive or
-  whether up to 2 more videos are needed.
-- **`info_summariser`** — synthesizes the gathered transcripts into one markdown note (tagging
-  distinct subtopics rather than splitting into multiple files) and writes it into the Obsidian
-  vault.
+  whether up to 2 more videos are needed. Stages its output as `.gathered/<slug>.json`.
+- **`info_summariser`** — reads that staged file, synthesizes the transcripts into one markdown
+  note (tagging distinct subtopics rather than splitting into multiple files), and writes it into
+  the Obsidian vault.
+
+The two agents only talk to each other through that staged JSON file — see `SCHEMA.md` for the
+exact contract. That's what makes each one testable on its own; see `TESTING.md`.
 
 ## Prerequisites
 

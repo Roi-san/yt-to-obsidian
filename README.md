@@ -124,10 +124,10 @@ strings, not diffing raw text.
 
 ## Usage
 
-From inside your Claude Code session:
+Example usage from inside your Claude Code session:
 
 ```
-/research how OAuth 2.0 authorization code flow works
+/research multi-agent planning
 ```
 
 Add a number to override the default 10-minute video-length cap:
@@ -136,26 +136,44 @@ Add a number to override the default 10-minute video-length cap:
 /research <topic> 30
 ```
 
-This writes one note into your vault, frontmatter and all:
+This writes one note into your vault. The `sources` list and the closing `## Open Questions`
+block are pulled straight from `observations.videos` and `reasoning.remaining_questions` in the
+staged JSON; the body is `info_summariser`'s own synthesis of `observations.claims`, organized by
+concept rather than by video:
 
 ```markdown
 ---
-title: OAuth 2.0 Authorization Code Flow
-created: 2026-08-04
-tags: [oauth2, authorization, security, tokens]
+title: Multi-Agent Planning and Architecture
+created: 2026-08-05
+tags: [multi-agent, agents, coordination, planning, orchestration]
 sources:
-  - https://youtube.com/watch?v=...
+  - https://youtube.com/watch?v=sWH0T4Zez6I
+  - https://youtube.com/watch?v=4nZl32FwU-o
+  - https://youtube.com/watch?v=49-rIRKVaes
 ---
 
-OAuth 2.0 is an authorization framework that enables applications to access protected
-resources on behalf of users without requiring users to share passwords...
+An AI agent is an autonomous system that can perform tasks by designing its workflow and using
+available tools. Multi-agent systems extend this by letting several agents cooperate while
+staying autonomous, trading the limits of a single agent for coordination overhead...
 
-## The Authorization Code Grant Flow (Web Server Use)
-...
+## Why Multi-Agent Systems Matter
+Single-agent systems hit natural limits — too many tools degrades performance (the sweet spot is
+5-10), and context grows unmanageable as interactions accumulate...
+
+## Multi-Agent Architectures
+Decentralized networks, hierarchical structures, supervisor agents, and custom cognitive
+architectures each trade autonomy against control differently. In production, custom
+architectures dominate over the theoretical patterns...
+
+## Key Challenges and Limitations
+Coordination complexity, keeping agents synchronized, and security vulnerabilities from a single
+compromised agent all grow with team size...
 
 ## Open Questions
-- What is the typical lifetime of authorization codes and access tokens, and how should they be managed?
-...
+- What specific algorithms or techniques optimize task decomposition in multi-agent planning?
+- What are the quantified cost metrics and resource requirements for running teams of different sizes?
+- How do you prevent deadlocks and resource conflicts when agents have interdependent tasks?
+- What are the practical scalability limits for orchestration layers as team size grows?
 ```
 
 ## Project structure

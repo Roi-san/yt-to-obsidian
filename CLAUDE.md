@@ -1,73 +1,55 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repo.
 
-## Project status
+## What this is
 
-This is a learning project. The owner is intentionally building most of it themselves; the two
-agent instruction files were written by Claude at the owner's explicit request as a starting
-point for them to iterate on. Don't assume that extends to future pieces (e.g. the MCP
-integration is explicitly the owner's own task, see below) — check what's actually been asked for
-rather than defaulting to writing things. Prefer explaining, pointing to docs, and reviewing what
-they write over writing it yourself unless asked.
+Learning project, tagged v1.0, public on GitHub. Keep it minimal — no filtering, dedup, or tests
+beyond what's explicitly asked for.
 
-## Goal & success criteria
+## Setup (one-time)
 
-Type a topic → get one `.md` file in the user's Obsidian vault, with no loss of the source
-information, produced from a bounded (2–4 video) research pass.
+1. `pip install -r requirements.txt`
+2. Copy `.env.example` to `.env` and set `OBSIDIAN_VAULT_PATH`.
 
-## Architecture
+## Usage
 
-Two Claude Code subagents, defined under `.claude/agents/`. They communicate only through a
-staged JSON file (`.gathered/<slug>.json`, gitignored), whose exact shape is the contract defined
-in `SCHEMA.md` — that decoupling is what makes each agent testable in isolation (see
-`TESTING.md`).
+`/research <topic> [max-video-minutes]` — runs the full pipeline: `info_gatherer` then
+`info_summariser`, back-to-back. That's the only command a human runs directly. Defaults: videos
+over 10 minutes are skipped unless you pass an override (`/research <topic> 30`).
 
-1. **`info_gatherer`** — given a topic string:
-   - Searches YouTube via `yt-dlp`'s `ytsearch:` to get candidate titles/descriptions (no full
-     fetch yet).
-   - Judges relevance from titles/descriptions only (cheap — avoids pulling transcripts for
-     obviously irrelevant videos).
-   - Pulls transcripts for the top 2 relevant videos.
-   - Makes one LLM comparison call: if the two transcripts are near-identical, treats the topic as
-     exhaustively covered and stops. If they overlap but seem incomplete, pulls transcripts for 2
-     more videos (hard cap of 4 total; the second batch is not re-judged).
-   - Stages the result as `.gathered/<slug>.json` per `SCHEMA.md`.
-2. **`info_summariser`** — given `.gathered/<slug>.json` for one topic:
-   - Synthesizes the transcripts into **one** markdown note (not split into multiple files).
-   - If distinct subtopics are present, flags them via YAML frontmatter tags rather than splitting
-     into separate notes.
-   - Writes the note directly to a path inside the Obsidian vault folder using the `Write` tool,
-     named `<slug>-<date>.md` (a vault is just a folder of markdown files — no MCP is required for
-     a note to "appear" in Obsidian). The date suffix means a later rerun on the same topic adds a
-     new note instead of silently overwriting — reconciling old vs. new is a v2 concern.
+## How it works
 
-### Explicitly out of scope for v1 (deferred to v2)
+- **`info_gatherer`** (`.claude/agents/info_gatherer.md`) — two phases:
+  - **Extract**: turns a topic into a YouTube search query, picks the 2 most relevant videos,
+    fetches their timestamped transcripts via `youtube_helpers.py`, and extracts a Layer 1
+    knowledge object per video (claims/definitions/examples/open_questions), staged mechanically
+    via `stage-knowledge` into `.gathered/<slug>.json`.
+  - **Reason**: reasons over the merged Layer 1 state only (never re-reads transcripts) to produce
+    agreements/disagreements/remaining_questions/unexpected_findings. If something concrete is
+    still missing, runs one targeted gap-driven search for one more video (hard cap 4 total), then
+    calls `finalize-reasoning` to nest the merged state under `observations` and attach the
+    reasoning as the final staged file.
+- **`info_summariser`** (`.claude/agents/info_summariser.md`) — reads that JSON's `observations`
+  and `reasoning`, checks the vault for related notes/tags via `vault_helpers.py`, writes one
+  synthesized note organized by concept (with disagreements named as disagreements and an
+  `## Open Questions` section for anything left unanswered) and a content-derived title, adds
+  `[[wikilinks]]` and bidirectional backlinks, then deletes the staged JSON.
 
-- Subscriber-count (or other channel-quality) filtering heuristic in `info_gatherer`.
-- Cross-vault duplicate/concept detection — v1 always writes a new file; topics may legitimately
-  need refreshed notes as information changes, so dedup is intentionally not attempted yet.
-- Wikilinks between notes / splitting a topic into multiple linked atomic notes.
-- Obsidian MCP integration. The user wants to learn MCP deliberately, not as a side effect of
-  debugging agent prompts, so it's sequenced *after* the two-agent pipeline is proven against a
-  plain file write. In a subagent architecture the swap from `Write` to an MCP tool call is a
-  small change (agent tool list + one instruction line), so deferring it costs little. No MCP
-  server has been chosen yet; that selection is the user's own task.
+See `PLAN.md` for the full schema and the reasoning behind the two-layer split — it's kept local
+(gitignored), not part of the published repo, so it won't exist in a fresh clone.
 
-### Known open risk
+Both agents run on Haiku by default (see each file's `model:` field) — bump an agent to `sonnet`
+if a topic needs sharper judgment.
 
-The "is this topic exhaustively covered yet" self-assessment in `info_gatherer` is a single LLM
-judgment call with no ground truth — it may over- or under-fetch inconsistently across topics.
-Not something to design around preemptively; worth watching once testing against real topics.
+`youtube_helpers.py` and `vault_helpers.py` are the only real code in the project — deterministic,
+mechanical operations (search/transcript fetch; vault list/skim/write/backlink) live there as
+plain functions. Everything else (which videos are relevant, which notes are related, what the
+note says and is titled) is the agents' own judgment, not scripted. `vault_helpers.py`'s functions
+are a plain internal API on purpose: an Obsidian MCP server, if ever wanted, could wrap these same
+functions as tools without changing the underlying logic.
 
-## Working in this repo
+## Deliberately not built yet
 
-- Subagent definitions belong in `.claude/agents/*.md` (YAML frontmatter: `name`, `description`,
-  `tools`, optionally `model`, followed by the system prompt).
-- There is no application code and no build step — both agents work entirely through existing
-  tools (`yt-dlp` via Bash, `Read`/`Write` for the staged file and the note). Changing behavior
-  means editing the agent instruction files directly.
-- The `info_gatherer` ↔ `info_summariser` contract lives in `SCHEMA.md`; keep both agent files in
-  sync with it rather than letting either drift into its own shape.
-- No automated tests — see `TESTING.md` for the manual check procedure for each agent and for the
-  full pipeline.
+Relevance filtering beyond the agents' own judgment, cross-vault dedup, an actual Obsidian MCP
+server. Not hard — just not needed at this scale yet.

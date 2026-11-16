@@ -24,7 +24,10 @@ over 10 minutes are skipped unless you pass an override (`/research <topic> 30`)
   - **Extract**: turns a topic into a YouTube search query, picks the 2 most relevant videos,
     fetches their timestamped transcripts via `youtube_helpers.py`, and extracts a Layer 1
     knowledge object per video (claims/definitions/examples/open_questions), staged mechanically
-    via `stage-knowledge` into `.gathered/<slug>.json`.
+    via `stage-knowledge` into `.gathered/<slug>.json`. From the second video on it reads the
+    already-staged statements (`claims`) and reuses their wording for restated claims, which is
+    what makes `corroborated_by` count for real. The merge also builds a `link` per timestamp
+    that opens the video at that moment.
   - **Reason**: reasons over the merged Layer 1 state only (never re-reads transcripts) to produce
     agreements/disagreements/remaining_questions/unexpected_findings. If something concrete is
     still missing, runs one targeted gap-driven search for one more video (hard cap 4 total), then
@@ -32,12 +35,18 @@ over 10 minutes are skipped unless you pass an override (`/research <topic> 30`)
     reasoning as the final staged file.
 - **`info_summariser`** (`.claude/agents/info_summariser.md`) — reads that JSON's `observations`
   and `reasoning`, checks the vault for related notes/tags via `vault_helpers.py`, writes one
-  synthesized note organized by concept (with disagreements named as disagreements and an
-  `## Open Questions` section for anything left unanswered) and a content-derived title, adds
+  synthesized note organized by concept (each claim cited with its timestamp `link`,
+  disagreements named as disagreements, and an `## Open Questions` section for anything left
+  unanswered) and a content-derived title, adds
   `[[wikilinks]]` and bidirectional backlinks, then deletes the staged JSON.
 
 See `PLAN.md` for the full schema and the reasoning behind the two-layer split — it's kept local
 (gitignored), not part of the published repo, so it won't exist in a fresh clone.
+
+Conventions worth keeping: `/research` computes the staged path once (`vault_helpers.py slug`)
+and hands it to both agents, so they never derive it separately; anything bigger than a short
+string (knowledge JSON, reasoning JSON, the note body) goes to the helpers on stdin via a quoted
+heredoc, never as a command-line argument — apostrophes in claims broke that.
 
 Both agents run on Haiku by default (see each file's `model:` field) — bump an agent to `sonnet`
 if a topic needs sharper judgment.

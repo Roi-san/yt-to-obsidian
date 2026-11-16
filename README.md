@@ -28,7 +28,8 @@ command:
   agreements, disagreements, and questions the sources didn't answer. If something concrete is
   still missing, it runs one more targeted search before finishing.
 - **`info_summariser`** reads that structured knowledge, checks your vault for related notes, and
-  writes one note in its own words — with tags, `[[wikilinks]]`, and bidirectional backlinks.
+  writes one note in its own words — with tags, `[[wikilinks]]`, bidirectional backlinks, and a
+  clickable citation after each claim that opens the source video at the exact moment it was said.
 
 ## Architecture
 
@@ -150,7 +151,7 @@ section):
         "statement": "Multi-agent systems provide flexibility, scalability, domain specialization, and better performance than single agents",
         "stated_as": "explicit",
         "corroborated_by": ["https://youtube.com/watch?v=sWH0T4Zez6I"],
-        "timestamps": [{"url": "https://youtube.com/watch?v=sWH0T4Zez6I", "time": "03:25"}]
+        "timestamps": [{"url": "https://youtube.com/watch?v=sWH0T4Zez6I", "time": "03:25", "link": "https://youtube.com/watch?v=sWH0T4Zez6I&t=205s"}]
       }
       // ... 22 more claims
     ],
@@ -158,6 +159,7 @@ section):
       {"term": "Orchestration layer", "explanation": "The central hub that understands the main goal, assigns tasks to agents, and integrates their work"}
     ],
     "examples": ["Research team: one agent gathers data, a second analyzes for patterns, a third synthesizes into a report"],
+    "open_questions": ["How do agents avoid deadlocks when their tasks depend on each other?"],
     "videos": [{"title": "Multi Agent Systems Explained", "url": "https://youtube.com/watch?v=sWH0T4Zez6I"}]
   },
   "reasoning": {
@@ -180,7 +182,17 @@ section):
 
 `info_summariser` reads that and writes one note — its own synthesis of `observations.claims`
 organized by concept, with `sources` pulled from `observations.videos` and a closing
-`## Open Questions` section pulled from `reasoning.remaining_questions`.
+`## Open Questions` section pulled from `reasoning.remaining_questions`. Each claim it uses is
+followed by its timestamp `link`, so a sentence in the note reads like this:
+
+```markdown
+Multi-agent systems trade a single agent's limits for specialization and scale
+([03:25](https://youtube.com/watch?v=sWH0T4Zez6I&t=205s)).
+```
+
+Two things in that JSON are counted by the script, not judged by a model: `corroborated_by` grows
+when a later video restates an already-staged claim, and each `link` is built from the video url
+and timestamp.
 
 ## Project structure
 
@@ -191,15 +203,18 @@ organized by concept, with `sources` pulled from `observations.videos` and a clo
     info_summariser.md    # reads staged knowledge, writes the vault note
   commands/
     research.md           # the /research slash command
-youtube_helpers.py         # search / transcript fetch / stage-knowledge / finalize-reasoning
-vault_helpers.py           # vault list / skim / write / backlink
+youtube_helpers.py         # search / transcript / claims / stage-knowledge / finalize-reasoning
+vault_helpers.py           # slug / list / skim / write / backlink
 test_youtube_helpers.py
 test_vault_helpers.py
 ```
 
+Both helper scripts print their usage when run with no arguments, and `python -m pytest -q` runs
+the tests for the mechanical parts (merging, corroboration, links, note writing).
+
 ## Status
 
-v1.0 — the core pipeline is built and tested. Deliberately not built: relevance filtering beyond
+The core pipeline is built and tested. Deliberately not built: relevance filtering beyond
 the agents' own judgment, cross-vault duplicate detection (needs a vault with real size to design
 against), and an actual Obsidian MCP server (`vault_helpers.py`'s functions are a plain internal
 API on purpose, so wrapping them as MCP tools later is a small step, not a rewrite).
